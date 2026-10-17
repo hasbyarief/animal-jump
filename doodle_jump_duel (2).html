@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Animal Jump Duel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: calc(100vh * 16 / 9);
+            max-height: calc(100vw * 9 / 16);
+            background-color: #f3efe6;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(243, 239, 230, 0.95);
+            z-index: 20;
+        }
+
+        .half-overlay {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10;
+        }
+
+        #p1QuestionPanel { left: 0; border-right: 2px solid white; }
+        #p2QuestionPanel { left: 50%; border-left: 2px solid white; }
+
+        .hidden { display: none !important; }
+
+        .answer-btn {
+            width: 80%;
+            margin: 8px 0;
+            padding: 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 12px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .answer-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Virtual Controls UI (Overlayed on top of canvas) -->
+        <div id="virtualControls" class="absolute bottom-8 w-full flex justify-between px-8 z-10 pointer-events-none hidden">
+            <!-- P1 Controls (Kiri) -->
+            <div class="flex gap-4 pointer-events-auto opacity-60">
+                <button id="p1BtnLeft" class="w-20 h-20 bg-gray-900 text-white rounded-full flex justify-center items-center text-4xl border-4 border-green-500 active:bg-green-700 active:scale-95 shadow-xl transition-transform">⬅️</button>
+                <button id="p1BtnRight" class="w-20 h-20 bg-gray-900 text-white rounded-full flex justify-center items-center text-4xl border-4 border-green-500 active:bg-green-700 active:scale-95 shadow-xl transition-transform">➡️</button>
+            </div>
+            <!-- P2 Controls (Kanan) -->
+            <div class="flex gap-4 pointer-events-auto opacity-60">
+                <button id="p2BtnLeft" class="w-20 h-20 bg-gray-900 text-white rounded-full flex justify-center items-center text-4xl border-4 border-blue-500 active:bg-blue-700 active:scale-95 shadow-xl transition-transform">⬅️</button>
+                <button id="p2BtnRight" class="w-20 h-20 bg-gray-900 text-white rounded-full flex justify-center items-center text-4xl border-4 border-blue-500 active:bg-blue-700 active:scale-95 shadow-xl transition-transform">➡️</button>
+            </div>
+        </div>
+
+        <!-- Start Screen & Character Select -->
+        <div id="startScreen" class="overlay">
+            <button id="fullscreenBtn" class="absolute top-4 right-4 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition transform active:scale-95 flex items-center gap-2 z-50">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z"/></svg> Fullscreen
+            </button>
+            
+            <h1 class="text-5xl font-black text-gray-800 mb-2 drop-shadow-md text-center">ANIMAL JUMP <span class="text-red-500">DUEL</span></h1>
+            <p class="text-sm text-gray-600 font-bold mb-6 animate-bounce">Pilih hewanmu dan lompat setinggi mungkin!</p>
+            
+            <div class="flex gap-12 mb-8 text-center px-6 py-6 font-semibold text-gray-700 bg-white rounded-2xl shadow-xl border-2 border-gray-200">
+                <!-- P1 Selector -->
+                <div>
+                    <input type="text" id="p1NameInput" value="Pemain 1" class="text-2xl text-green-600 font-bold border-b-2 border-green-600 mb-4 bg-transparent text-center focus:outline-none focus:bg-green-50 rounded w-40 hover:bg-gray-100 transition" maxlength="12">
+                    <p class="text-sm text-gray-500 mb-2">Pilih Hewan:</p>
+                    <div class="flex gap-2 justify-center">
+                        <label class="cursor-pointer"><input type="radio" name="p1Char" value="🐸" checked class="hidden peer"><span class="text-4xl peer-checked:bg-green-200 peer-checked:ring-2 ring-green-600 rounded-xl p-1 block transition transform hover:scale-110">🐸</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="p1Char" value="🦊" class="hidden peer"><span class="text-4xl peer-checked:bg-green-200 peer-checked:ring-2 ring-green-600 rounded-xl p-1 block transition transform hover:scale-110">🦊</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="p1Char" value="🐰" class="hidden peer"><span class="text-4xl peer-checked:bg-green-200 peer-checked:ring-2 ring-green-600 rounded-xl p-1 block transition transform hover:scale-110">🐰</span></label>
+                    </div>
+                </div>
+                
+                <div class="w-1 bg-gray-200 rounded-full"></div>
+                
+                <!-- P2 Selector -->
+                <div>
+                    <input type="text" id="p2NameInput" value="Pemain 2" class="text-2xl text-blue-600 font-bold border-b-2 border-blue-600 mb-4 bg-transparent text-center focus:outline-none focus:bg-blue-50 rounded w-40 hover:bg-gray-100 transition" maxlength="12">
+                    <p class="text-sm text-gray-500 mb-2">Pilih Hewan:</p>
+                    <div class="flex gap-2 justify-center">
+                        <label class="cursor-pointer"><input type="radio" name="p2Char" value="🐱" checked class="hidden peer"><span class="text-4xl peer-checked:bg-blue-200 peer-checked:ring-2 ring-blue-600 rounded-xl p-1 block transition transform hover:scale-110">🐱</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="p2Char" value="🐼" class="hidden peer"><span class="text-4xl peer-checked:bg-blue-200 peer-checked:ring-2 ring-blue-600 rounded-xl p-1 block transition transform hover:scale-110">🐼</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="p2Char" value="🐯" class="hidden peer"><span class="text-4xl peer-checked:bg-blue-200 peer-checked:ring-2 ring-blue-600 rounded-xl p-1 block transition transform hover:scale-110">🐯</span></label>
+                    </div>
+                </div>
+            </div>
+            <button id="startBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-black py-4 px-16 rounded-full shadow-lg transform transition active:scale-95 text-3xl border-4 border-yellow-700">
+                FIGHT!
+            </button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="overlay hidden">
+            <h1 class="text-6xl font-black text-red-600 mb-4 drop-shadow-md">GAME OVER</h1>
+            <h2 id="winnerText" class="text-4xl text-gray-800 font-bold mb-10 text-center bg-yellow-300 px-8 py-3 rounded-xl transform -rotate-2 border-4 border-black shadow-lg">
+                Pemain 1 Menang!
+            </h2>
+            <div class="flex gap-12 mb-10 text-2xl font-bold bg-white p-6 rounded-2xl shadow-xl">
+                <div class="text-green-600 text-center"><span id="scoreLabel1">Score P1</span><br><span id="finalScore1" class="text-5xl">0</span></div>
+                <div class="w-1 bg-gray-200 rounded-full"></div>
+                <div class="text-blue-600 text-center"><span id="scoreLabel2">Score P2</span><br><span id="finalScore2" class="text-5xl">0</span></div>
+            </div>
+            <button id="restartBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-12 rounded-full shadow-lg transform transition active:scale-95 text-2xl">
+                TANDING ULANG
+            </button>
+        </div>
+        
+        <!-- Score Displays (Ingame) -->
+        <div id="score1Display" class="absolute top-4 left-6 text-4xl font-black text-green-700 hidden drop-shadow-md z-0">0</div>
+        <div id="score2Display" class="absolute top-4 right-6 text-4xl font-black text-blue-700 hidden drop-shadow-md z-0">0</div>
+
+        <!-- P1 Question Panel -->
+        <div id="p1QuestionPanel" class="half-overlay hidden">
+            <h3 id="p1QuestionHeader" class="text-yellow-400 font-bold text-xl mb-4 text-center px-4">PERTANYAAN BONUS P1!</h3>
+            <div id="p1QuestionText" class="text-5xl font-black text-white mb-6 bg-blue-900 p-6 rounded-xl border-4 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)]">
+                5 + 3 = ?
+            </div>
+            <div id="p1Answers" class="w-full flex flex-col items-center"></div>
+        </div>
+
+        <!-- P2 Question Panel -->
+        <div id="p2QuestionPanel" class="half-overlay hidden">
+            <h3 id="p2QuestionHeader" class="text-yellow-400 font-bold text-xl mb-4 text-center px-4">PERTANYAAN BONUS P2!</h3>
+            <div id="p2QuestionText" class="text-5xl font-black text-white mb-6 bg-green-900 p-6 rounded-xl border-4 border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.6)]">
+                5 + 3 = ?
+            </div>
+            <div id="p2Answers" class="w-full flex flex-col items-center"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let audioInitialized = false;
+        let bgmLoop;
+        let jumpSynth, correctSynth, wrongSynth, bassSynth;
+
+        let lastJumpTime = 0; // Mencegah crash jika lompat bersamaan
+
+        async function initAudio() {
+            if (audioInitialized) return;
+            await Tone.start();
+            
+            // Background Music (Bass Synth yang energik)
+            bassSynth = new Tone.FMSynth({
+                harmonicity: 1.5,
+                modulationIndex: 2,
+                oscillator: { type: "square" },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 }
+            }).toDestination();
+            bassSynth.volume.value = -18;
+
+            const bassNotes = ["C3", "C3", "D#3", "F3", "C3", "C3", "A#2", "G2"];
+            let bassStep = 0;
+            bgmLoop = new Tone.Loop((time) => {
+                bassSynth.triggerAttackRelease(bassNotes[bassStep % bassNotes.length], "16n", time);
+                bassStep++;
+            }, "8n");
+            Tone.Transport.bpm.value = 140;
+
+            // SFX Melompat
+            jumpSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.008, octaves: 4, oscillator: { type: 'sine' },
+                envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 }
+            }).toDestination();
+            jumpSynth.volume.value = -10;
+
+            // SFX Jawaban Benar
+            correctSynth = new Tone.PolySynth(Tone.Synth, {
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 1 }
+            }).toDestination();
+            correctSynth.volume.value = -10;
+
+            // SFX Jawaban Salah
+            wrongSynth = new Tone.Synth({
+                 oscillator: { type: "sawtooth" },
+                 envelope: { attack: 0.1, decay: 0.2, sustain: 0.2, release: 0.5 }
+            }).toDestination();
+            wrongSynth.volume.value = -10;
+
+            audioInitialized = true;
+        }
+
+        function playJump() {
+            if (audioInitialized && Tone.context.state === 'running') {
+                const now = Tone.now();
+                // Hanya mainkan suara jika jeda dengan lompatan sebelumnya > 0.05 detik
+                if (now - lastJumpTime > 0.05) {
+                    jumpSynth.triggerAttackRelease("G2", "16n", now);
+                    lastJumpTime = now;
+                }
+            }
+        }
+
+        function playCorrect() {
+            if (audioInitialized && Tone.context.state === 'running') {
+                const now = Tone.now();
+                correctSynth.triggerAttackRelease("C5", "16n", now);
+                correctSynth.triggerAttackRelease("E5", "16n", now + 0.1);
+                correctSynth.triggerAttackRelease("G5", "8n", now + 0.2);
+                correctSynth.triggerAttackRelease("C6", "4n", now + 0.3);
+            }
+        }
+
+        function playWrong() {
+            if (audioInitialized && Tone.context.state === 'running') {
+                const now = Tone.now();
+                wrongSynth.triggerAttack("D3", now);
+                wrongSynth.frequency.exponentialRampTo("C2", 0.4, now + 0.1);
+                wrongSynth.triggerRelease(now + 0.5);
+            }
+        }
+
+        const ui = {
+            startScreen: document.getElementById('startScreen'),
+            gameOverScreen: document.getElementById('gameOverScreen'),
+            virtualControls: document.getElementById('virtualControls'),
+            startBtn: document.getElementById('startBtn'),
+            restartBtn: document.getElementById('restartBtn'),
+            winnerText: document.getElementById('winnerText'),
+            finalScore1: document.getElementById('finalScore1'),
+            finalScore2: document.getElementById('finalScore2'),
+            score1Display: document.getElementById('score1Display'),
+            score2Display: document.getElementById('score2Display'),
+            p1Panel: document.getElementById('p1QuestionPanel'),
+            p2Panel: document.getElementById('p2QuestionPanel'),
+            p1QText: document.getElementById('p1QuestionText'),
+            p2QText: document.getElementById('p2QuestionText'),
+            p1Answers: document.getElementById('p1Answers'),
+            p2Answers: document.getElementById('p2Answers'),
+            p1NameInput: document.getElementById('p1NameInput'),
+            p2NameInput: document.getElementById('p2NameInput'),
+            scoreLabel1: document.getElementById('scoreLabel1'),
+            scoreLabel2: document.getElementById('scoreLabel2'),
+            p1QuestionHeader: document.getElementById('p1QuestionHeader'),
+            p2QuestionHeader: document.getElementById('p2QuestionHeader'),
+            fullscreenBtn: document.getElementById('fullscreenBtn')
+        };
+
+        const GAME_WIDTH = 1280; 
+        const HALF_WIDTH = 640;
+        const GAME_HEIGHT = 720;
+        
+        let scaleX = 1;
+        let scaleY = 1;
+        let gameState = 'START'; 
+        let animationId;
+
+        const PLATFORM_WIDTH = 90;
+        const PLATFORM_HEIGHT = 20;
+        const CLOUD_WIDTH = 100;
+        const CLOUD_HEIGHT = 60;
+
+        class Player {
+            constructor(id, offsetX, colorTheme) {
+                this.id = id;
+                this.offsetX = offsetX; 
+                this.colorTheme = colorTheme;
+                this.emoji = '🐸'; // Default
+                this.reset();
+            }
+
+            reset() {
+                this.x = HALF_WIDTH / 2 - 25; 
+                this.y = GAME_HEIGHT / 2;
+                this.width = 60; // Ukuran hitbox & emoji sedikit diperbesar
+                this.height = 60;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 8;
+                this.jumpStrength = -14;
+                this.superJumpStrength = -26; // Lompatan tinggi dari awan
+                this.gravity = 0.4;
+                this.direction = 1;
+                this.score = 0;
+                this.state = 'PLAYING';
+                this.platforms = [];
+                this.clouds = [];
+                
+                // INTENSITAS AWAN: Dipersempit agar lebih sering muncul
+                this.cloudInterval = 600; 
+                this.nextCloudY = GAME_HEIGHT - 400;
+
+                this.platforms.push({ x: HALF_WIDTH / 2 - PLATFORM_WIDTH / 2, y: GAME_HEIGHT - 50, type: 'normal' });
+                
+                let currentY = GAME_HEIGHT - 100;
+                while (currentY > -GAME_HEIGHT * 2) {
+                    this.createEntity(currentY);
+                    currentY -= (Math.random() * 60 + 60); 
+                }
+            }
+
+            createEntity(y) {
+                let x = Math.random() * (HALF_WIDTH - PLATFORM_WIDTH);
+                
+                if (y <= this.nextCloudY) {
+                    let cloudX = Math.random() * (HALF_WIDTH - CLOUD_WIDTH);
+                    this.clouds.push({ x: cloudX, y: y, active: true });
+                    this.nextCloudY -= this.cloudInterval; 
+                } else {
+                    this.platforms.push({ x: x, y: y });
+                }
+            }
+        }
+
+        let p1 = new Player(1, 0, { plat: '#84cc16', platShadow: '#65a30d' });
+        let p2 = new Player(2, HALF_WIDTH, { plat: '#3b82f6', platShadow: '#2563eb' });
+        let keys = { p1Left: false, p1Right: false, p2Left: false, p2Right: false };
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            scaleX = canvas.width / GAME_WIDTH;
+            scaleY = canvas.height / GAME_HEIGHT;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyA') keys.p1Left = true;
+            if (e.code === 'KeyD') keys.p1Right = true;
+            if (e.code === 'ArrowLeft') keys.p2Left = true;
+            if (e.code === 'ArrowRight') keys.p2Right = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyA') keys.p1Left = false;
+            if (e.code === 'KeyD') keys.p1Right = false;
+            if (e.code === 'ArrowLeft') keys.p2Left = false;
+            if (e.code === 'ArrowRight') keys.p2Right = false;
+        });
+
+        // Menautkan Tombol Virtual dengan status keys
+        function bindVirtualButton(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            // Touch events
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; }, {passive: false});
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; }, {passive: false});
+            btn.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[keyName] = false; }, {passive: false});
+            // Mouse fallback 
+            btn.addEventListener('mousedown', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('mouseup', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[keyName] = false; });
+        }
+
+        bindVirtualButton('p1BtnLeft', 'p1Left');
+        bindVirtualButton('p1BtnRight', 'p1Right');
+        bindVirtualButton('p2BtnLeft', 'p2Left');
+        bindVirtualButton('p2BtnRight', 'p2Right');
+
+        function triggerQuestion(player) {
+            player.state = 'ANSWERING';
+            
+            let num1 = Math.floor(Math.random() * 10) + 1;
+            let num2 = Math.floor(Math.random() * 10) + 1;
+            let ans = num1 + num2;
+            
+            let optionSet = new Set([ans]);
+            while (optionSet.size < 3) {
+                let offset = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 5) + 1);
+                optionSet.add(ans + offset);
+            }
+            let options = Array.from(optionSet).sort(() => Math.random() - 0.5);
+
+            const panel = player.id === 1 ? ui.p1Panel : ui.p2Panel;
+            const qText = player.id === 1 ? ui.p1QText : ui.p2QText;
+            const ansContainer = player.id === 1 ? ui.p1Answers : ui.p2Answers;
+
+            qText.innerText = `${num1} + ${num2} = ?`;
+            ansContainer.innerHTML = '';
+            
+            options.forEach(opt => {
+                let btn = document.createElement('button');
+                btn.className = 'answer-btn';
+                btn.innerText = opt;
+                btn.onclick = () => handleAnswer(player, opt === ans, panel);
+                ansContainer.appendChild(btn);
+            });
+
+            panel.classList.remove('hidden');
+        }
+
+        function handleAnswer(player, isCorrect, panel) {
+            panel.classList.add('hidden');
+            player.state = 'PLAYING';
+            
+            if (isCorrect) {
+                player.vy = player.superJumpStrength;
+                playCorrect();
+            } else {
+                player.vy = 5; 
+                playWrong();
+            }
+        }
+
+        function updatePlayer(p, keyLeft, keyRight, scoreDisplay) {
+            if (p.state === 'DEAD' || p.state === 'ANSWERING') return;
+
+            if (keyLeft) { p.vx = -p.speed; p.direction = -1; }
+            else if (keyRight) { p.vx = p.speed; p.direction = 1; }
+            else { p.vx = 0; }
+
+            p.x += p.vx;
+
+            if (p.x + p.width < 0) p.x = HALF_WIDTH;
+            else if (p.x > HALF_WIDTH) p.x = -p.width;
+
+            p.vy += p.gravity;
+            p.y += p.vy;
+
+            // Collision Check
+            if (p.vy > 0) {
+                for (let i = 0; i < p.platforms.length; i++) {
+                    let plat = p.platforms[i];
+                    if (p.x + p.width - 15 > plat.x && p.x + 15 < plat.x + PLATFORM_WIDTH &&
+                        p.y + p.height >= plat.y && p.y + p.height <= plat.y + PLATFORM_HEIGHT + p.vy) {
+                        p.vy = p.jumpStrength;
+                        playJump();
+                        break;
+                    }
+                }
+
+                for (let i = 0; i < p.clouds.length; i++) {
+                    let cloud = p.clouds[i];
+                    if (cloud.active && p.x + p.width - 15 > cloud.x && p.x + 15 < cloud.x + CLOUD_WIDTH &&
+                        p.y + p.height >= cloud.y && p.y + p.height <= cloud.y + CLOUD_HEIGHT + p.vy) {
+                        cloud.active = false; 
+                        p.vy = 0; 
+                        triggerQuestion(p);
+                        break;
+                    }
+                }
+            }
+
+            // Camera Scroll
+            const scrollThreshold = GAME_HEIGHT / 2.2;
+            if (p.y < scrollThreshold) {
+                let diff = scrollThreshold - p.y;
+                p.y = scrollThreshold;
+                p.score += Math.floor(diff);
+                
+                p.platforms.forEach(plat => plat.y += diff);
+                p.clouds.forEach(cloud => cloud.y += diff);
+            }
+
+            scoreDisplay.innerText = p.score;
+
+            // Cleanup & Spawn Entities
+            p.platforms = p.platforms.filter(plat => plat.y < GAME_HEIGHT + 50);
+            p.clouds = p.clouds.filter(cloud => cloud.y < GAME_HEIGHT + 50);
+
+            let highestY = GAME_HEIGHT;
+            p.platforms.forEach(plat => { if(plat.y < highestY) highestY = plat.y; });
+            p.clouds.forEach(cloud => { if(cloud.y < highestY) highestY = cloud.y; });
+
+            while (highestY > -GAME_HEIGHT + 200) {
+                p.createEntity(highestY - (Math.random() * 60 + 60));
+                highestY = p.platforms[p.platforms.length-1]?.y || highestY; 
+                let lastCloudY = p.clouds[p.clouds.length-1]?.y || highestY;
+                highestY = Math.min(highestY, lastCloudY);
+            }
+
+            if (p.y > GAME_HEIGHT) {
+                p.state = 'DEAD';
+                checkGameOver();
+            }
+        }
+
+        function checkGameOver() {
+            // Game over HANYA jika KEDUA pemain sudah kalah (DEAD)
+            if (p1.state === 'DEAD' && p2.state === 'DEAD') {
+                gameState = 'GAMEOVER';
+                
+                // Hentikan BGM
+                if (audioInitialized) {
+                    bgmLoop.stop();
+                    Tone.Transport.stop();
+                }
+
+                ui.score1Display.classList.add('hidden');
+                ui.score2Display.classList.add('hidden');
+                ui.p1Panel.classList.add('hidden');
+                ui.p2Panel.classList.add('hidden');
+                ui.virtualControls.classList.add('hidden'); // Hide controls
+                ui.gameOverScreen.classList.remove('hidden');
+                
+                ui.finalScore1.innerText = p1.score;
+                ui.finalScore2.innerText = p2.score;
+
+                // Tentukan pemenang berdasarkan skor tertinggi
+                if (p1.score > p2.score) {
+                    ui.winnerText.innerText = `${p1.name} MENANG! 🏆`;
+                    ui.winnerText.className = "text-4xl text-gray-800 font-bold mb-10 text-center bg-green-400 px-8 py-3 rounded-xl transform -rotate-2 border-4 border-black shadow-lg";
+                } else if (p2.score > p1.score) {
+                    ui.winnerText.innerText = `${p2.name} MENANG! 🏆`;
+                    ui.winnerText.className = "text-4xl text-gray-800 font-bold mb-10 text-center bg-blue-400 px-8 py-3 rounded-xl transform rotate-2 border-4 border-black shadow-lg";
+                } else {
+                    ui.winnerText.innerText = "SERI!";
+                    ui.winnerText.className = "text-4xl text-gray-800 font-bold mb-10 text-center bg-gray-300 px-8 py-3 rounded-xl border-4 border-black shadow-lg";
+                }
+            }
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#f3efe6'; 
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.lineWidth = 12;
+            ctx.strokeStyle = 'rgba(163, 230, 53, 0.4)'; 
+            ctx.strokeRect(6, 6, HALF_WIDTH - 12, GAME_HEIGHT - 12);
+
+            ctx.strokeStyle = 'rgba(96, 165, 250, 0.4)'; 
+            ctx.strokeRect(HALF_WIDTH + 6, 6, HALF_WIDTH - 12, GAME_HEIGHT - 12);
+
+            ctx.fillStyle = '#1f2937'; 
+            ctx.fillRect(HALF_WIDTH - 4, 0, 8, GAME_HEIGHT);
+            
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(HALF_WIDTH - 1, 0, 2, GAME_HEIGHT);
+        }
+
+        function drawPlayer(p) {
+            ctx.save();
+            ctx.translate(p.offsetX, 0); 
+
+            // Platforms
+            p.platforms.forEach(plat => {
+                ctx.fillStyle = p.colorTheme.platShadow;
+                ctx.beginPath(); ctx.roundRect(plat.x, plat.y + 5, PLATFORM_WIDTH, PLATFORM_HEIGHT, 5); ctx.fill();
+                ctx.fillStyle = p.colorTheme.plat;
+                ctx.beginPath(); ctx.roundRect(plat.x, plat.y, PLATFORM_WIDTH, PLATFORM_HEIGHT, 5); ctx.fill();
+            });
+
+            // Clouds
+            p.clouds.forEach(cloud => {
+                if (!cloud.active) return;
+                ctx.save();
+                ctx.translate(cloud.x, cloud.y);
+                let w = CLOUD_WIDTH; let h = CLOUD_HEIGHT;
+
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 5;
+
+                ctx.beginPath();
+                ctx.arc(w*0.25, h*0.5, h*0.4, 0, Math.PI * 2);
+                ctx.arc(w*0.75, h*0.5, h*0.4, 0, Math.PI * 2);
+                ctx.arc(w*0.5, h*0.25, h*0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowColor = 'transparent';
+                ctx.fillStyle = '#ef4444'; 
+                ctx.font = `bold ${h*0.55}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('?', w*0.5, h*0.5);
+                ctx.restore();
+            });
+
+            // Character (Render Emoji)
+            if (p.state !== 'DEAD') {
+                let cx = p.x; let cy = p.y; let cw = p.width; let ch = p.height;
+                
+                ctx.save();
+                ctx.translate(cx + cw/2, cy + ch/2);
+                
+                // Flip horizontally if facing left
+                if (p.direction === -1) {
+                    ctx.scale(-1, 1);
+                }
+
+                ctx.font = `${cw * 1.1}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Bayangan karakter
+                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetY = 4;
+                
+                // Menggambar Emoji (Menyesuaikan rotasi dengan arah gerak)
+                ctx.fillText(p.emoji, 0, 0);
+                
+                ctx.restore();
+            } else {
+                // Overlay GAME OVER khusus untuk pemain yang kalah
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Latar gelap semi-transparan
+                ctx.fillRect(0, 0, HALF_WIDTH, GAME_HEIGHT);
+
+                ctx.save();
+                ctx.translate(HALF_WIDTH / 2, GAME_HEIGHT / 2);
+                
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 5;
+
+                // Tulisan GAME OVER
+                ctx.font = '900 65px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = 'white';
+                ctx.strokeText('GAME OVER', 0, -20);
+                
+                ctx.fillStyle = '#ef4444'; // Merah terang
+                ctx.fillText('GAME OVER', 0, -20);
+
+                // Tulisan Skor
+                ctx.font = 'bold 35px Inter';
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = 'black';
+                ctx.strokeText(`Skor: ${p.score}`, 0, 40);
+                ctx.fillStyle = '#facc15'; // Kuning
+                ctx.fillText(`Skor: ${p.score}`, 0, 40);
+                
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            if (gameState === 'PLAYING') {
+                updatePlayer(p1, keys.p1Left, keys.p1Right, ui.score1Display);
+                updatePlayer(p2, keys.p2Left, keys.p2Right, ui.score2Display);
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.scale(scaleX, scaleY);
+            drawBackground();
+            drawPlayer(p1);
+            drawPlayer(p2);
+            ctx.restore();
+
+            if (gameState === 'PLAYING' || gameState === 'GAMEOVER' || gameState === 'START') {
+                animationId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        async function startGame() {
+            await initAudio();
+            if (audioInitialized) {
+                Tone.Transport.start();
+                bgmLoop.start(0);
+            }
+
+            let p1CustomName = ui.p1NameInput.value.trim() || "Pemain 1";
+            let p2CustomName = ui.p2NameInput.value.trim() || "Pemain 2";
+            p1.name = p1CustomName;
+            p2.name = p2CustomName;
+            
+            // Ambil emoji yang dipilih
+            p1.emoji = document.querySelector('input[name="p1Char"]:checked').value;
+            p2.emoji = document.querySelector('input[name="p2Char"]:checked').value;
+
+            ui.scoreLabel1.innerText = `Score ${p1CustomName}`;
+            ui.scoreLabel2.innerText = `Score ${p2CustomName}`;
+            ui.p1QuestionHeader.innerText = `PERTANYAAN BONUS ${p1CustomName.toUpperCase()}!`;
+            ui.p2QuestionHeader.innerText = `PERTANYAAN BONUS ${p2CustomName.toUpperCase()}!`;
+
+            p1.reset();
+            p2.reset();
+            gameState = 'PLAYING';
+            
+            ui.startScreen.classList.add('hidden');
+            ui.gameOverScreen.classList.add('hidden');
+            ui.score1Display.classList.remove('hidden');
+            ui.score2Display.classList.remove('hidden');
+            ui.p1Panel.classList.add('hidden');
+            ui.p2Panel.classList.add('hidden');
+            
+            // Tampilkan tombol virtual overlay
+            ui.virtualControls.classList.remove('hidden');
+        }
+
+        ui.startBtn.addEventListener('click', startGame);
+        ui.restartBtn.addEventListener('click', startGame);
+
+        ui.fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.warn(`Fullscreen error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        resizeCanvas();
+        gameLoop();
+    </script>
+</body>
+</html>
